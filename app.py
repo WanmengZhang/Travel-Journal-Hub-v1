@@ -111,7 +111,8 @@ def get_entries():
         
         return jsonify(entries), 200
     except Error as e:
-        return jsonify({'error': str(e)}), 500
+        print(f"Database error: {e}")
+        return jsonify({'error': 'Failed to retrieve entries'}), 500
     finally:
         cursor.close()
         connection.close()
@@ -148,7 +149,8 @@ def get_entry(entry_id):
         
         return jsonify(entry), 200
     except Error as e:
-        return jsonify({'error': str(e)}), 500
+        print(f"Database error: {e}")
+        return jsonify({'error': 'Failed to retrieve entry'}), 500
     finally:
         cursor.close()
         connection.close()
@@ -189,7 +191,8 @@ def create_entry():
         entry_id = cursor.lastrowid
         return jsonify({'id': entry_id, 'message': 'Entry created successfully'}), 201
     except Error as e:
-        return jsonify({'error': str(e)}), 500
+        print(f"Database error: {e}")
+        return jsonify({'error': 'Failed to create entry'}), 500
     finally:
         cursor.close()
         connection.close()
@@ -232,7 +235,8 @@ def update_entry(entry_id):
         
         return jsonify({'message': 'Entry updated successfully'}), 200
     except Error as e:
-        return jsonify({'error': str(e)}), 500
+        print(f"Database error: {e}")
+        return jsonify({'error': 'Failed to update entry'}), 500
     finally:
         cursor.close()
         connection.close()
@@ -258,11 +262,14 @@ def delete_entry(entry_id):
         
         return jsonify({'message': 'Entry deleted successfully'}), 200
     except Error as e:
-        return jsonify({'error': str(e)}), 500
+        print(f"Database error: {e}")
+        return jsonify({'error': 'Failed to delete entry'}), 500
     finally:
         cursor.close()
         connection.close()
 
 if __name__ == '__main__':
     init_db()
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    # Use environment variable to control debug mode (default to False for security)
+    debug_mode = os.environ.get('FLASK_DEBUG', 'False').lower() == 'true'
+    app.run(debug=debug_mode, host='0.0.0.0', port=5000)
