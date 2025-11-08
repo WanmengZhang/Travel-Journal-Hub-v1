@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Travel Journal Hub - Home</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <h1 class="logo">✈️ Travel Journal Hub</h1>
+            <ul class="nav-links">
+                <li><a href="/" class="active">Home</a></li>
+                <li><a href="/journals">My Journals</a></li>
+                <li><a href="/editor">New Entry</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <main class="container">
+        <section class="hero">
+            <h2>Welcome to Your Travel Journal</h2>
+            <p>Capture and relive your adventures around the world</p>
+        </section>
+
+        <section class="summary-section">
+            <div class="section-header">
+                <h3>Recent Entries</h3>
+                <a href="/journals" class="btn btn-secondary">View All</a>
+            </div>
+            <div id="entries-summary" class="entries-grid">
+                <div class="loading">Loading your travel memories...</div>
+            </div>
+        </section>
+
+        <section class="stats-section">
+            <div class="stat-card">
+                <h4 id="total-entries">0</h4>
+                <p>Total Entries</p>
+            </div>
+            <div class="stat-card">
+                <h4 id="destinations-count">0</h4>
+                <p>Destinations</p>
+            </div>
+            <div class="stat-card">
+                <h4 id="latest-trip">-</h4>
+                <p>Latest Trip</p>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2025 Travel Journal Hub. Document your adventures.</p>
+        </div>
+    </footer>
+
+    <script src="{{ url_for('static', filename='home.js') }}"></script>
+</body>
+</html>

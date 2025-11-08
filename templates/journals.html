@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Journals - Travel Journal Hub</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <h1 class="logo">✈️ Travel Journal Hub</h1>
+            <ul class="nav-links">
+                <li><a href="/">Home</a></li>
+                <li><a href="/journals" class="active">My Journals</a></li>
+                <li><a href="/editor">New Entry</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <main class="container">
+        <div class="page-header">
+            <h2>My Travel Journals</h2>
+            <a href="/editor" class="btn btn-primary">+ Create New Entry</a>
+        </div>
+
+        <div class="journals-filters">
+            <input type="text" id="search-input" placeholder="Search by destination...">
+        </div>
+
+        <div id="journals-list" class="journals-container">
+            <div class="loading">Loading your journals...</div>
+        </div>
+
+        <div id="no-journals" class="empty-state" style="display: none;">
+            <h3>No Journals Yet</h3>
+            <p>Start documenting your travels by creating your first entry!</p>
+            <a href="/editor" class="btn btn-primary">Create Your First Entry</a>
+        </div>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2025 Travel Journal Hub. Document your adventures.</p>
+        </div>
+    </footer>
+
+    <script src="{{ url_for('static', filename='journals.js') }}"></script>
+</body>
+</html>
