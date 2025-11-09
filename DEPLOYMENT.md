@@ -119,8 +119,45 @@ git push origin main
 1. 在 Vercel Dashboard 查看部署日志
 2. 检查 `vercel.json` 配置
 3. 确认 `requirements.txt` 包含所有依赖
+4. 检查是否有 `api/index.py` 文件
 
-### Q2: 如何查看部署日志？
+### Q2: 部署成功但访问显示"无法访问该页面"
+
+**可能原因和解决方案**：
+
+**原因 1：构建失败**
+- 登录 Vercel Dashboard
+- 点击项目 → Deployments
+- 查看最新部署的状态，如果是红色 ❌，点击查看日志
+- 常见错误：Python 版本不兼容、依赖缺失
+
+**原因 2：路由配置问题**
+- 确认项目包含 `api/index.py` 文件
+- 检查 `vercel.json` 配置是否正确
+
+**原因 3：应用未正确启动**
+- 在部署日志中查找错误信息
+- 检查是否有数据库连接错误（正常，Vercel 使用 SQLite）
+
+**原因 4：域名解析问题**
+- 尝试访问不同的 Vercel 提供的域名
+- 等待几分钟后重试（DNS 传播）
+
+**快速修复步骤**：
+```bash
+# 1. 确保代码最新
+git pull origin main
+
+# 2. 检查文件结构
+ls -la api/index.py vercel.json
+
+# 3. 如果文件缺失，重新部署
+git add .
+git commit -m "Fix Vercel deployment configuration"
+git push origin main
+```
+
+### Q3: 如何查看部署日志？
 
 **步骤**：
 1. 登录 Vercel Dashboard
@@ -128,14 +165,14 @@ git push origin main
 3. 点击 **"Deployments"** 标签
 4. 点击具体部署查看日志
 
-### Q3: 数据会丢失吗？
+### Q4: 数据会丢失吗？
 
 **说明**：
 - ⚠️ Vercel 是无服务器环境，SQLite 数据会在每次部署后重置
 - ✅ 适合演示和测试
 - 💡 如需数据持久化，可使用外部数据库（PlanetScale、Supabase）
 
-### Q4: 免费额度够用吗？
+### Q5: 免费额度够用吗？
 
 **额度说明**：
 - ✅ 100 GB 带宽/月
@@ -145,14 +182,14 @@ git push origin main
 
 对于课程项目完全够用！
 
-### Q5: 在中国能访问吗？
+### Q6: 在中国能访问吗？
 
 **访问情况**：
 - ✅ 大部分地区可直接访问
 - ⚠️ 部分地区可能较慢
 - 💡 访问有问题可尝试更换网络
 
-### Q6: 如何自定义域名？
+### Q7: 如何自定义域名？
 
 **步骤**：
 1. Vercel Dashboard → 项目 → **"Settings"**
@@ -160,7 +197,7 @@ git push origin main
 3. 添加自定义域名
 4. 按提示配置 DNS 记录
 
-### Q7: 如何回滚版本？
+### Q8: 如何回滚版本？
 
 **步骤**：
 1. **"Deployments"** → 选择之前的部署
