@@ -429,40 +429,39 @@ python app.py
 
 **For detailed step-by-step cloud deployment instructions, see [DEPLOYMENT.md](DEPLOYMENT.md)**
 
-**Quick Deployment (Railway.app - Recommended):**
+**Quick Deployment (Vercel - Recommended):**
 
-Railway.app provides the easiest deployment option with zero configuration:
+Vercel provides the best deployment option for this project:
 
 1. Push code to GitHub
-2. Visit [Railway.app](https://railway.app/) and connect your repository
-3. Railway auto-detects Python and deploys in 2-3 minutes
-4. Get a free HTTPS URL like `https://your-app.up.railway.app`
+2. Visit [Vercel.com](https://vercel.com/) and connect your repository
+3. Vercel auto-detects Python and deploys in 2-3 minutes
+4. Get a free HTTPS URL like `https://your-app.vercel.app`
 
-The application automatically uses SQLite on Railway with persistent storage.
+The application automatically uses SQLite on Vercel (note: data resets on each deployment).
 
 **Production Checklist:**
 - [ ] Set `FLASK_DEBUG=false`
-- [ ] Use production WSGI server (gunicorn, uWSGI)
-- [ ] Configure MySQL with proper credentials
-- [ ] Enable HTTPS/TLS
-- [ ] Set up database backups
+- [ ] Configure environment variables in Vercel dashboard
+- [ ] Set up custom domain (optional)
 - [ ] Configure CORS origins appropriately
 - [ ] Add authentication/authorization (future enhancement)
+- [ ] Consider external database for data persistence (optional)
 
-**Recommended Production Setup:**
-```bash
-# Install gunicorn
-pip install gunicorn
+**Vercel Configuration:**
 
-# Run with gunicorn
-gunicorn --bind 0.0.0.0:5000 --workers 4 app:app
-```
+The project includes a `vercel.json` file that configures:
+- Python runtime for Flask application
+- Static file serving for CSS/JS
+- Automatic HTTPS and CDN
+- SQLite database mode
 
-**Cloud Deployment Options:**
-- **Heroku**: Add `Procfile` with `web: gunicorn app:app`
-- **AWS Elastic Beanstalk**: Package as Python application
-- **Google Cloud Platform**: Deploy to App Engine
-- **DigitalOcean**: Use App Platform or Droplet with nginx
+**Alternative Deployment:**
+
+For persistent database storage, consider:
+- External database service (PlanetScale, Supabase)
+- Other platforms with persistent filesystem
+- Self-hosted deployment with MySQL
 
 ---
 
