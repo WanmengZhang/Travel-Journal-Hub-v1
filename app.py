@@ -24,7 +24,12 @@ if not USE_SQLITE:
 if USE_SQLITE:
     import sqlite3
     DB_TYPE = 'sqlite'
-    SQLITE_DB_PATH = os.environ.get('SQLITE_DB_PATH', 'travel_journal.db')
+    # Use /tmp directory for Vercel serverless environment (only writable location)
+    # Check if running on Vercel (has VERCEL environment variable)
+    if os.environ.get('VERCEL'):
+        SQLITE_DB_PATH = '/tmp/travel_journal.db'
+    else:
+        SQLITE_DB_PATH = os.environ.get('SQLITE_DB_PATH', 'travel_journal.db')
 
 app = Flask(__name__)
 CORS(app)
