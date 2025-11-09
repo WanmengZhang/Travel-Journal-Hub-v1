@@ -1,14 +1,30 @@
 """
 Travel Journal Hub - Flask Backend Application
 Manages journal entries with MySQL database integration
+Supports SQLite as fallback for development/testing
 """
 
 from flask import Flask, render_template, request, jsonify
 from flask_cors import CORS
-import mysql.connector
-from mysql.connector import Error
 import os
 from datetime import datetime
+
+# Try MySQL first, fall back to SQLite if unavailable
+USE_SQLITE = os.environ.get('USE_SQLITE', 'false').lower() == 'true'
+
+if not USE_SQLITE:
+    try:
+        import mysql.connector
+        from mysql.connector import Error as MySQLError
+        DB_TYPE = 'mysql'
+    except ImportError:
+        print("MySQL connector not available, falling back to SQLite")
+        USE_SQLITE = True
+
+if USE_SQLITE:
+    import sqlite3
+    DB_TYPE = 'sqlite'
+    SQLITE_DB_PATH = os.environ.get('SQLITE_DB_PATH', 'travel_journal.db')
 
 app = Flask(__name__)
 CORS(app)
@@ -21,48 +37,96 @@ DB_CONFIG = {
     'database': os.environ.get('DB_NAME', 'travel_journal')
 }
 
+def dict_cursor(connection):
+    """Get a cursor that returns dictionaries for both MySQL and SQLite"""
+    if DB_TYPE == 'sqlite':
+        cursor = connection.cursor()
+        cursor.row_factory = sqlite3.Row
+        return cursor
+    else:
+        return connection.cursor(dictionary=True)
+
 def get_db_connection():
-    """Create and return a database connection"""
-    try:
-        connection = mysql.connector.connect(**DB_CONFIG)
-        return connection
-    except Error as e:
-        print(f"Error connecting to MySQL: {e}")
-        return None
+    """Create and return a database connection (MySQL or SQLite)"""
+    if DB_TYPE == 'sqlite':
+        try:
+            connection = sqlite3.connect(SQLITE_DB_PATH)
+            connection.row_factory = sqlite3.Row  # Enable column access by name
+            return connection
+        except sqlite3.Error as e:
+            print(f"Error connecting to SQLite: {e}")
+            return None
+    else:
+        try:
+            connection = mysql.connector.connect(**DB_CONFIG)
+            return connection
+        except MySQLError as e:
+            print(f"Error connecting to MySQL: {e}")
+            print("Tip: Set USE_SQLITE=true to use SQLite instead")
+            return None
 
 def init_db():
     """Initialize the database and create tables if they don't exist"""
-    connection = get_db_connection()
-    if connection:
-        try:
-            cursor = connection.cursor()
-            
-            # Create database if it doesn't exist
-            cursor.execute(f"CREATE DATABASE IF NOT EXISTS {DB_CONFIG['database']}")
-            cursor.execute(f"USE {DB_CONFIG['database']}")
-            
-            # Create journal_entries table
-            create_table_query = """
-            CREATE TABLE IF NOT EXISTS journal_entries (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                destination VARCHAR(255) NOT NULL,
-                start_date DATE NOT NULL,
-                end_date DATE NOT NULL,
-                description TEXT,
-                highlights TEXT,
-                photo_links TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-            )
-            """
-            cursor.execute(create_table_query)
-            connection.commit()
-            print("Database initialized successfully")
-        except Error as e:
-            print(f"Error initializing database: {e}")
-        finally:
-            cursor.close()
-            connection.close()
+    if DB_TYPE == 'sqlite':
+        connection = get_db_connection()
+        if connection:
+            try:
+                cursor = connection.cursor()
+                
+                # Create journal_entries table for SQLite
+                create_table_query = """
+                CREATE TABLE IF NOT EXISTS journal_entries (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    destination TEXT NOT NULL,
+                    start_date TEXT NOT NULL,
+                    end_date TEXT NOT NULL,
+                    description TEXT,
+                    highlights TEXT,
+                    photo_links TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+                """
+                cursor.execute(create_table_query)
+                connection.commit()
+                print(f"SQLite database initialized successfully at {SQLITE_DB_PATH}")
+            except sqlite3.Error as e:
+                print(f"Error initializing SQLite database: {e}")
+            finally:
+                cursor.close()
+                connection.close()
+    else:
+        connection = get_db_connection()
+        if connection:
+            try:
+                cursor = connection.cursor()
+                
+                # Create database if it doesn't exist
+                cursor.execute(f"CREATE DATABASE IF NOT EXISTS {DB_CONFIG['database']}")
+                cursor.execute(f"USE {DB_CONFIG['database']}")
+                
+                # Create journal_entries table
+                create_table_query = """
+                CREATE TABLE IF NOT EXISTS journal_entries (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    destination VARCHAR(255) NOT NULL,
+                    start_date DATE NOT NULL,
+                    end_date DATE NOT NULL,
+                    description TEXT,
+                    highlights TEXT,
+                    photo_links TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                )
+                """
+                cursor.execute(create_table_query)
+                connection.commit()
+                print("MySQL database initialized successfully")
+            except MySQLError as e:
+                print(f"Error initializing MySQL database: {e}")
+            finally:
+                cursor.close()
+                connection.close()
 
 # Routes for serving HTML pages
 @app.route('/')
@@ -89,28 +153,40 @@ def get_entries():
         return jsonify({'error': 'Database connection failed'}), 500
     
     try:
-        cursor = connection.cursor(dictionary=True)
-        cursor.execute("""
-            SELECT id, destination, start_date, end_date, description, 
-                   highlights, photo_links, created_at, updated_at
-            FROM journal_entries
-            ORDER BY start_date DESC
-        """)
-        entries = cursor.fetchall()
+        if DB_TYPE == 'sqlite':
+            cursor = connection.cursor()
+            cursor.execute("""
+                SELECT id, destination, start_date, end_date, description, 
+                       highlights, photo_links, created_at, updated_at
+                FROM journal_entries
+                ORDER BY start_date DESC
+            """)
+            rows = cursor.fetchall()
+            # Convert sqlite3.Row to dict
+            entries = [dict(row) for row in rows]
+        else:
+            cursor = connection.cursor(dictionary=True)
+            cursor.execute("""
+                SELECT id, destination, start_date, end_date, description, 
+                       highlights, photo_links, created_at, updated_at
+                FROM journal_entries
+                ORDER BY start_date DESC
+            """)
+            entries = cursor.fetchall()
         
-        # Convert date objects to strings
+        # Convert date objects to strings (SQLite stores as strings already)
         for entry in entries:
-            if entry['start_date']:
-                entry['start_date'] = entry['start_date'].strftime('%Y-%m-%d')
-            if entry['end_date']:
-                entry['end_date'] = entry['end_date'].strftime('%Y-%m-%d')
-            if entry['created_at']:
-                entry['created_at'] = entry['created_at'].strftime('%Y-%m-%d %H:%M:%S')
-            if entry['updated_at']:
-                entry['updated_at'] = entry['updated_at'].strftime('%Y-%m-%d %H:%M:%S')
+            if DB_TYPE == 'mysql' and entry.get('start_date'):
+                entry['start_date'] = entry['start_date'].strftime('%Y-%m-%d') if hasattr(entry['start_date'], 'strftime') else entry['start_date']
+            if DB_TYPE == 'mysql' and entry.get('end_date'):
+                entry['end_date'] = entry['end_date'].strftime('%Y-%m-%d') if hasattr(entry['end_date'], 'strftime') else entry['end_date']
+            if DB_TYPE == 'mysql' and entry.get('created_at'):
+                entry['created_at'] = entry['created_at'].strftime('%Y-%m-%d %H:%M:%S') if hasattr(entry['created_at'], 'strftime') else entry['created_at']
+            if DB_TYPE == 'mysql' and entry.get('updated_at'):
+                entry['updated_at'] = entry['updated_at'].strftime('%Y-%m-%d %H:%M:%S') if hasattr(entry['updated_at'], 'strftime') else entry['updated_at']
         
         return jsonify(entries), 200
-    except Error as e:
+    except Exception as e:
         print(f"Database error: {e}")
         return jsonify({'error': 'Failed to retrieve entries'}), 500
     finally:
@@ -125,30 +201,43 @@ def get_entry(entry_id):
         return jsonify({'error': 'Database connection failed'}), 500
     
     try:
-        cursor = connection.cursor(dictionary=True)
-        cursor.execute("""
-            SELECT id, destination, start_date, end_date, description, 
-                   highlights, photo_links, created_at, updated_at
-            FROM journal_entries
-            WHERE id = %s
-        """, (entry_id,))
-        entry = cursor.fetchone()
+        placeholder = '?' if DB_TYPE == 'sqlite' else '%s'
+        if DB_TYPE == 'sqlite':
+            cursor = connection.cursor()
+            cursor.execute(f"""
+                SELECT id, destination, start_date, end_date, description, 
+                       highlights, photo_links, created_at, updated_at
+                FROM journal_entries
+                WHERE id = {placeholder}
+            """, (entry_id,))
+            row = cursor.fetchone()
+            entry = dict(row) if row else None
+        else:
+            cursor = connection.cursor(dictionary=True)
+            cursor.execute(f"""
+                SELECT id, destination, start_date, end_date, description, 
+                       highlights, photo_links, created_at, updated_at
+                FROM journal_entries
+                WHERE id = {placeholder}
+            """, (entry_id,))
+            entry = cursor.fetchone()
         
         if not entry:
             return jsonify({'error': 'Entry not found'}), 404
         
-        # Convert date objects to strings
-        if entry['start_date']:
-            entry['start_date'] = entry['start_date'].strftime('%Y-%m-%d')
-        if entry['end_date']:
-            entry['end_date'] = entry['end_date'].strftime('%Y-%m-%d')
-        if entry['created_at']:
-            entry['created_at'] = entry['created_at'].strftime('%Y-%m-%d %H:%M:%S')
-        if entry['updated_at']:
-            entry['updated_at'] = entry['updated_at'].strftime('%Y-%m-%d %H:%M:%S')
+        # Convert date objects to strings (MySQL only)
+        if DB_TYPE == 'mysql':
+            if entry.get('start_date'):
+                entry['start_date'] = entry['start_date'].strftime('%Y-%m-%d') if hasattr(entry['start_date'], 'strftime') else entry['start_date']
+            if entry.get('end_date'):
+                entry['end_date'] = entry['end_date'].strftime('%Y-%m-%d') if hasattr(entry['end_date'], 'strftime') else entry['end_date']
+            if entry.get('created_at'):
+                entry['created_at'] = entry['created_at'].strftime('%Y-%m-%d %H:%M:%S') if hasattr(entry['created_at'], 'strftime') else entry['created_at']
+            if entry.get('updated_at'):
+                entry['updated_at'] = entry['updated_at'].strftime('%Y-%m-%d %H:%M:%S') if hasattr(entry['updated_at'], 'strftime') else entry['updated_at']
         
         return jsonify(entry), 200
-    except Error as e:
+    except Exception as e:
         print(f"Database error: {e}")
         return jsonify({'error': 'Failed to retrieve entry'}), 500
     finally:
@@ -171,11 +260,12 @@ def create_entry():
         return jsonify({'error': 'Database connection failed'}), 500
     
     try:
+        placeholder = '?' if DB_TYPE == 'sqlite' else '%s'
         cursor = connection.cursor()
-        query = """
+        query = f"""
             INSERT INTO journal_entries 
             (destination, start_date, end_date, description, highlights, photo_links)
-            VALUES (%s, %s, %s, %s, %s, %s)
+            VALUES ({placeholder}, {placeholder}, {placeholder}, {placeholder}, {placeholder}, {placeholder})
         """
         values = (
             data['destination'],
@@ -190,7 +280,7 @@ def create_entry():
         
         entry_id = cursor.lastrowid
         return jsonify({'id': entry_id, 'message': 'Entry created successfully'}), 201
-    except Error as e:
+    except Exception as e:
         print(f"Database error: {e}")
         return jsonify({'error': 'Failed to create entry'}), 500
     finally:
@@ -207,19 +297,20 @@ def update_entry(entry_id):
         return jsonify({'error': 'Database connection failed'}), 500
     
     try:
+        placeholder = '?' if DB_TYPE == 'sqlite' else '%s'
         cursor = connection.cursor()
         
         # Check if entry exists
-        cursor.execute("SELECT id FROM journal_entries WHERE id = %s", (entry_id,))
+        cursor.execute(f"SELECT id FROM journal_entries WHERE id = {placeholder}", (entry_id,))
         if not cursor.fetchone():
             return jsonify({'error': 'Entry not found'}), 404
         
         # Update entry
-        query = """
+        query = f"""
             UPDATE journal_entries 
-            SET destination = %s, start_date = %s, end_date = %s, 
-                description = %s, highlights = %s, photo_links = %s
-            WHERE id = %s
+            SET destination = {placeholder}, start_date = {placeholder}, end_date = {placeholder}, 
+                description = {placeholder}, highlights = {placeholder}, photo_links = {placeholder}
+            WHERE id = {placeholder}
         """
         values = (
             data.get('destination'),
@@ -234,7 +325,7 @@ def update_entry(entry_id):
         connection.commit()
         
         return jsonify({'message': 'Entry updated successfully'}), 200
-    except Error as e:
+    except Exception as e:
         print(f"Database error: {e}")
         return jsonify({'error': 'Failed to update entry'}), 500
     finally:
@@ -249,19 +340,20 @@ def delete_entry(entry_id):
         return jsonify({'error': 'Database connection failed'}), 500
     
     try:
+        placeholder = '?' if DB_TYPE == 'sqlite' else '%s'
         cursor = connection.cursor()
         
         # Check if entry exists
-        cursor.execute("SELECT id FROM journal_entries WHERE id = %s", (entry_id,))
+        cursor.execute(f"SELECT id FROM journal_entries WHERE id = {placeholder}", (entry_id,))
         if not cursor.fetchone():
             return jsonify({'error': 'Entry not found'}), 404
         
         # Delete entry
-        cursor.execute("DELETE FROM journal_entries WHERE id = %s", (entry_id,))
+        cursor.execute(f"DELETE FROM journal_entries WHERE id = {placeholder}", (entry_id,))
         connection.commit()
         
         return jsonify({'message': 'Entry deleted successfully'}), 200
-    except Error as e:
+    except Exception as e:
         print(f"Database error: {e}")
         return jsonify({'error': 'Failed to delete entry'}), 500
     finally:
@@ -272,4 +364,6 @@ if __name__ == '__main__':
     init_db()
     # Use environment variable to control debug mode (default to False for security)
     debug_mode = os.environ.get('FLASK_DEBUG', 'False').lower() == 'true'
-    app.run(debug=debug_mode, host='0.0.0.0', port=5000)
+    # Get port from environment variable for cloud deployment (Railway, Heroku, etc.)
+    port = int(os.environ.get('PORT', 5000))
+    app.run(debug=debug_mode, host='0.0.0.0', port=port)

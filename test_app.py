@@ -6,14 +6,28 @@ Verifies that the Flask app is properly configured
 import sys
 import os
 
+# Set USE_SQLITE to avoid MySQL connection requirement during tests
+os.environ['USE_SQLITE'] = 'true'
+
 def test_imports():
     """Test that all required modules can be imported"""
     try:
         import flask
         from flask import Flask, render_template, request, jsonify
         from flask_cors import CORS
-        import mysql.connector
-        print("✓ All required modules imported successfully")
+        print("✓ All required Flask modules imported successfully")
+        
+        # Test optional MySQL import
+        try:
+            import mysql.connector
+            print("✓ MySQL connector available")
+        except ImportError:
+            print("ℹ MySQL connector not available (using SQLite)")
+        
+        # Test SQLite import
+        import sqlite3
+        print("✓ SQLite3 available")
+        
         return True
     except ImportError as e:
         print(f"✗ Import error: {e}")
@@ -22,8 +36,8 @@ def test_imports():
 def test_app_structure():
     """Test that the Flask app structure is correct"""
     try:
-        from app import app, get_db_connection, init_db
-        print("✓ Flask app structure is correct")
+        from app import app, get_db_connection, init_db, DB_TYPE
+        print(f"✓ Flask app structure is correct (using {DB_TYPE})")
         return True
     except Exception as e:
         print(f"✗ App structure error: {e}")
