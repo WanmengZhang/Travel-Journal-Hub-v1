@@ -382,7 +382,7 @@ Testing Static Files...
 
 ---
 
-## 7. Development & Deployment
+## 7. Development
 
 ### 7.1 Local Development Setup
 
@@ -425,43 +425,57 @@ python app.py
 | `DB_NAME` | `travel_journal` | MySQL database name |
 | `FLASK_DEBUG` | `false` | Enable Flask debug mode |
 
-### 7.3 Deployment Considerations
+### 7.3 Local Deployment
 
-**For detailed step-by-step cloud deployment instructions, see [DEPLOYMENT.md](DEPLOYMENT.md)**
+**Running the Application Locally:**
 
-**Quick Deployment (Vercel - Recommended):**
+The application is designed for local development and testing:
 
-Vercel provides the best deployment option for this project:
+1. **Install Dependencies**
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-1. Push code to GitHub
-2. Visit [Vercel.com](https://vercel.com/) and connect your repository
-3. Vercel auto-detects Python and deploys in 2-3 minutes
-4. Get a free HTTPS URL like `https://your-app.vercel.app`
+2. **Start the Application**
+   ```bash
+   # Using SQLite (recommended for development)
+   USE_SQLITE=true python app.py
+   
+   # Or use the start script
+   ./start.sh
+   ```
 
-The application automatically uses SQLite on Vercel (note: data resets on each deployment).
+3. **Access the Application**
+   - Open browser at `http://localhost:5000`
+   - Application runs on port 5000 by default
 
-**Production Checklist:**
-- [ ] Set `FLASK_DEBUG=false`
-- [ ] Configure environment variables in Vercel dashboard
-- [ ] Set up custom domain (optional)
-- [ ] Configure CORS origins appropriately
-- [ ] Add authentication/authorization (future enhancement)
-- [ ] Consider external database for data persistence (optional)
+**Development Checklist:**
+- [ ] Install Python 3.9+
+- [ ] Install required dependencies from `requirements.txt`
+- [ ] Set up SQLite database (automatic on first run)
+- [ ] Configure environment variables in `.env` file
+- [ ] Run tests with `python test_app.py`
 
-**Vercel Configuration:**
+**Database Options:**
 
-The project includes a `vercel.json` file that configures:
-- Python runtime for Flask application
-- Static file serving for CSS/JS
-- Automatic HTTPS and CDN
-- SQLite database mode
+- **SQLite** (default): Perfect for local development and testing
+- **MySQL** (optional): Available for production use, requires configuration
 
-**Alternative Deployment:**
+**Environment Variables:**
 
-For persistent database storage, consider:
-- External database service (PlanetScale, Supabase)
-- Other platforms with persistent filesystem
-- Self-hosted deployment with MySQL
+```bash
+# Development mode (optional)
+FLASK_DEBUG=true
+
+# Database selection
+USE_SQLITE=true
+
+# MySQL configuration (if not using SQLite)
+DB_HOST=localhost
+DB_USER=root
+DB_PASSWORD=yourpassword
+DB_NAME=travel_journal
+```
 
 ---
 
@@ -471,7 +485,7 @@ For persistent database storage, consider:
 
 1. **Access the Application**
    - Open your web browser
-   - Navigate to `http://localhost:5000` (or deployed URL)
+   - Navigate to `http://localhost:5000`
 
 2. **Homepage Overview**
    - View your travel statistics (total entries, destinations)
@@ -541,7 +555,7 @@ For persistent database storage, consider:
 **[Team Member Name 3] - Documentation & Testing**
 - Wrote project documentation (README, REPORT)
 - Conducted manual testing and QA
-- Created deployment guides
+- Created development guides
 - Prepared presentation materials
 
 ### 9.2 Development Timeline
@@ -552,7 +566,7 @@ For persistent database storage, consider:
 | Backend Development | Week 2-3 | Flask API, database integration, CRUD operations |
 | Frontend Development | Week 3-4 | HTML/CSS/JS pages, client-side logic |
 | Integration & Testing | Week 5 | API-frontend integration, bug fixes, testing |
-| Documentation & Deployment | Week 6 | User manual, technical docs, deployment |
+| Documentation & Polish | Week 6 | User manual, technical docs, code cleanup |
 
 ### 9.3 Version Control & Collaboration
 
@@ -617,9 +631,9 @@ Travel Journal Hub successfully demonstrates a complete full-stack web applicati
 ✅ **CRUD Operations**: Complete Create, Read, Update, Delete functionality  
 ✅ **Testing**: Automated test suite with manual testing procedures  
 ✅ **Documentation**: Comprehensive technical documentation and user manual  
-✅ **Deployment Ready**: Environment configuration and deployment guidelines
+✅ **Development Ready**: Environment configuration and development guidelines
 
-The application meets all course requirements for client-server programming, database integration, and user interface design. The dual-database support (MySQL/SQLite) ensures easy development and testing while maintaining production scalability.
+The application meets all course requirements for client-server programming, database integration, and user interface design. The dual-database support (MySQL/SQLite) ensures easy development and testing.
 
 ---
 
