@@ -12,24 +12,28 @@ from datetime import datetime
 # Try MySQL first, fall back to SQLite if unavailable
 USE_SQLITE = os.environ.get('USE_SQLITE', 'false').lower() == 'true'
 
+# Always import sqlite3 as fallback
+import sqlite3
+
 if not USE_SQLITE:
     try:
         import mysql.connector
         from mysql.connector import Error as MySQLError
         DB_TYPE = 'mysql'
+        print("✓ MySQL connector available, attempting to use MySQL")
     except ImportError:
-        print("MySQL connector not available, falling back to SQLite")
+        print("⚠ MySQL connector not available, falling back to SQLite")
         USE_SQLITE = True
-
-if USE_SQLITE:
-    import sqlite3
+        DB_TYPE = 'sqlite'
+else:
     DB_TYPE = 'sqlite'
-    # Use /tmp directory for Vercel serverless environment (only writable location)
-    # Check if running on Vercel (has VERCEL environment variable)
-    if os.environ.get('VERCEL'):
-        SQLITE_DB_PATH = '/tmp/travel_journal.db'
-    else:
-        SQLITE_DB_PATH = os.environ.get('SQLITE_DB_PATH', 'travel_journal.db')
+    print("✓ Using SQLite (USE_SQLITE=true)")
+
+# SQLite configuration (always needed as fallback)
+if os.environ.get('VERCEL'):
+    SQLITE_DB_PATH = '/tmp/travel_journal.db'
+else:
+    SQLITE_DB_PATH = os.environ.get('SQLITE_DB_PATH', 'travel_journal.db')
 
 app = Flask(__name__)
 CORS(app)
@@ -52,86 +56,95 @@ def dict_cursor(connection):
         return connection.cursor(dictionary=True)
 
 def get_db_connection():
-    """Create and return a database connection (MySQL or SQLite)"""
+    """Create and return a database connection (MySQL or SQLite with auto-fallback)"""
+    global DB_TYPE  # Allow switching DB_TYPE at runtime
+    
     if DB_TYPE == 'sqlite':
         try:
             connection = sqlite3.connect(SQLITE_DB_PATH)
             connection.row_factory = sqlite3.Row  # Enable column access by name
             return connection
         except sqlite3.Error as e:
-            print(f"Error connecting to SQLite: {e}")
+            print(f"❌ Error connecting to SQLite: {e}")
             return None
     else:
+        # Try MySQL first
         try:
             connection = mysql.connector.connect(**DB_CONFIG)
             return connection
         except MySQLError as e:
-            print(f"Error connecting to MySQL: {e}")
-            print("Tip: Set USE_SQLITE=true to use SQLite instead")
-            return None
+            print(f"⚠️  MySQL connection failed: {e}")
+            print(f"🔄 Auto-fallback: Switching to SQLite...")
+            
+            # Auto-fallback to SQLite
+            DB_TYPE = 'sqlite'
+            try:
+                connection = sqlite3.connect(SQLITE_DB_PATH)
+                connection.row_factory = sqlite3.Row
+                print(f"✓ Successfully connected to SQLite: {SQLITE_DB_PATH}")
+                return connection
+            except sqlite3.Error as sqlite_e:
+                print(f"❌ SQLite fallback also failed: {sqlite_e}")
+                return None
 
 def init_db():
-    """Initialize the database and create tables if they don't exist"""
-    if DB_TYPE == 'sqlite':
-        connection = get_db_connection()
-        if connection:
-            try:
-                cursor = connection.cursor()
-                
-                # Create journal_entries table for SQLite
-                create_table_query = """
-                CREATE TABLE IF NOT EXISTS journal_entries (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    destination TEXT NOT NULL,
-                    start_date TEXT NOT NULL,
-                    end_date TEXT NOT NULL,
-                    description TEXT,
-                    highlights TEXT,
-                    photo_links TEXT,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                )
-                """
-                cursor.execute(create_table_query)
-                connection.commit()
-                print(f"SQLite database initialized successfully at {SQLITE_DB_PATH}")
-            except sqlite3.Error as e:
-                print(f"Error initializing SQLite database: {e}")
-            finally:
-                cursor.close()
-                connection.close()
-    else:
-        connection = get_db_connection()
-        if connection:
-            try:
-                cursor = connection.cursor()
-                
-                # Create database if it doesn't exist
-                cursor.execute(f"CREATE DATABASE IF NOT EXISTS {DB_CONFIG['database']}")
-                cursor.execute(f"USE {DB_CONFIG['database']}")
-                
-                # Create journal_entries table
-                create_table_query = """
-                CREATE TABLE IF NOT EXISTS journal_entries (
-                    id INT AUTO_INCREMENT PRIMARY KEY,
-                    destination VARCHAR(255) NOT NULL,
-                    start_date DATE NOT NULL,
-                    end_date DATE NOT NULL,
-                    description TEXT,
-                    highlights TEXT,
-                    photo_links TEXT,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-                )
-                """
-                cursor.execute(create_table_query)
-                connection.commit()
-                print("MySQL database initialized successfully")
-            except MySQLError as e:
-                print(f"Error initializing MySQL database: {e}")
-            finally:
-                cursor.close()
-                connection.close()
+    """Initialize the database and create tables if they don't exist (with auto-fallback)"""
+    global DB_TYPE
+    
+    connection = get_db_connection()  # This will auto-fallback if needed
+    if not connection:
+        print("❌ Failed to initialize database: No connection available")
+        return
+    
+    try:
+        cursor = connection.cursor()
+        
+        if DB_TYPE == 'sqlite':
+            # Create journal_entries table for SQLite
+            create_table_query = """
+            CREATE TABLE IF NOT EXISTS journal_entries (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                destination TEXT NOT NULL,
+                start_date TEXT NOT NULL,
+                end_date TEXT NOT NULL,
+                description TEXT,
+                highlights TEXT,
+                photo_links TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+            cursor.execute(create_table_query)
+            connection.commit()
+            print(f"✓ SQLite database initialized successfully at {SQLITE_DB_PATH}")
+        else:
+            # Create database if it doesn't exist (MySQL)
+            cursor.execute(f"CREATE DATABASE IF NOT EXISTS {DB_CONFIG['database']}")
+            cursor.execute(f"USE {DB_CONFIG['database']}")
+            
+            # Create journal_entries table
+            create_table_query = """
+            CREATE TABLE IF NOT EXISTS journal_entries (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                destination VARCHAR(255) NOT NULL,
+                start_date DATE NOT NULL,
+                end_date DATE NOT NULL,
+                description TEXT,
+                highlights TEXT,
+                photo_links TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+            )
+            """
+            cursor.execute(create_table_query)
+            connection.commit()
+            print("✓ MySQL database initialized successfully")
+            
+    except Exception as e:
+        print(f"❌ Error initializing database: {e}")
+    finally:
+        cursor.close()
+        connection.close()
 
 # Routes for serving HTML pages
 @app.route('/favicon.ico')
