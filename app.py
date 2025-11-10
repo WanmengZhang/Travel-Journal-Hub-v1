@@ -134,6 +134,18 @@ def init_db():
                 connection.close()
 
 # Routes for serving HTML pages
+@app.route('/favicon.ico')
+def favicon():
+    """Serve favicon or return 204 if not found"""
+    from flask import send_from_directory
+    import os
+    favicon_path = os.path.join(app.root_path, 'static', 'favicon.ico')
+    if os.path.exists(favicon_path):
+        return send_from_directory(os.path.join(app.root_path, 'static'), 'favicon.ico', mimetype='image/vnd.microsoft.icon')
+    else:
+        # Return 204 No Content if favicon doesn't exist (prevents 404 error)
+        return '', 204
+
 @app.route('/')
 def index():
     """Serve the homepage"""
